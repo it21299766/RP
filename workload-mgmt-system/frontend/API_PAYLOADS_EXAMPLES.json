@@ -1,0 +1,238 @@
+{
+  "authentication": {
+    "login": {
+      "method": "POST",
+      "endpoint": "/api/auth/login",
+      "payload": {
+        "registrationNumber": "Ad12345",
+        "password": "password123"
+      }
+    }
+  },
+  "staff": {
+    "create": {
+      "method": "POST",
+      "endpoint": "/api/staff",
+      "payload": {
+        "staffId": "STAFF001",
+        "name": "Dr. John Smith",
+        "email": "john.smith@university.edu",
+        "department": "Computer Science",
+        "role": "professor",
+        "position": "Professor",
+        "qualifications": "PhD in Computer Science, CS101, CS201",
+        "minContactHoursYear": 300.00,
+        "minContactHoursWeek": 10.00,
+        "maxHoursWeek": 30.00,
+        "minHoursWeek": 15.00,
+        "profilePicture": "data:image/jpeg;base64,..."
+      }
+    },
+    "update": {
+      "method": "PUT",
+      "endpoint": "/api/staff/1",
+      "payload": {
+        "staffId": "STAFF001",
+        "name": "Dr. John Smith",
+        "email": "john.smith@university.edu",
+        "department": "Computer Science",
+        "role": "professor",
+        "position": "Professor",
+        "qualifications": "PhD in Computer Science, CS101, CS201, CS301",
+        "minContactHoursYear": 320.00,
+        "minContactHoursWeek": 12.00,
+        "maxHoursWeek": 30.00,
+        "minHoursWeek": 18.00,
+        "profilePicture": "data:image/jpeg;base64,..."
+      }
+    }
+  },
+  "courses": {
+    "create": {
+      "method": "POST",
+      "endpoint": "/api/courses",
+      "payload": {
+        "courseId": "COURSE001",
+        "courseCode": "CS101",
+        "courseName": "Introduction to Computer Science",
+        "department": "Faculty of Computing",
+        "credits": 3,
+        "contactHoursWeek": 3.00,
+        "canCombineSections": false,
+        "courseType": "lecture",
+        "requiredQualification": "CS100",
+        "semester": "Semester 1",
+        "expectedEnrollment": 50,
+        "maxStudentsSection": 50,
+        "priority": 5,
+        "description": "Fundamental concepts of computer science"
+      }
+    },
+    "update": {
+      "method": "PUT",
+      "endpoint": "/api/courses/1",
+      "payload": {
+        "courseId": "COURSE001",
+        "courseCode": "CS101",
+        "courseName": "Introduction to Computer Science",
+        "department": "Faculty of Computing",
+        "credits": 4,
+        "contactHoursWeek": 4.00,
+        "canCombineSections": true,
+        "courseType": "lecture",
+        "requiredQualification": "CS100",
+        "semester": "Semester 1",
+        "expectedEnrollment": 60,
+        "maxStudentsSection": 60,
+        "priority": 7,
+        "description": "Fundamental concepts of computer science - Updated"
+      }
+    }
+  },
+  "tasks": {
+    "create": {
+      "method": "POST",
+      "endpoint": "/api/tasks",
+      "payload": {
+        "taskId": "T001",
+        "taskName": "Review Course Materials",
+        "description": "Review and update course materials for CS101",
+        "category": "academic",
+        "hoursNeeded": "40",
+        "noOfStaff": "2",
+        "staffQualificationCriteria": "PhD in Computer Science, 5+ years teaching experience",
+        "department": "Computer Science",
+        "programme": "Bachelor of Science",
+        "module": "Module 1"
+      }
+    },
+    "update": {
+      "method": "PUT",
+      "endpoint": "/api/tasks/1",
+      "payload": {
+        "taskId": "T001",
+        "taskName": "Review Course Materials",
+        "description": "Review and update course materials for CS101 and CS201",
+        "category": "academic",
+        "hoursNeeded": "50",
+        "noOfStaff": "3",
+        "staffQualificationCriteria": "PhD in Computer Science, 5+ years teaching experience",
+        "department": "Computer Science",
+        "programme": "Bachelor of Science",
+        "module": "Module 1"
+      }
+    }
+  },
+  "workload": {
+    "allocate": {
+      "method": "POST",
+      "endpoint": "/api/workload/allocate",
+      "payload": {
+        "semester": "Semester 1",
+        "department": "All"
+      }
+    }
+  },
+  "reports": {
+    "generate": {
+      "method": "POST",
+      "endpoint": "/api/reports/generate",
+      "payload": {
+        "reportType": "staff-workload-summary",
+        "filters": {
+          "academicPeriod": "2024-2025",
+          "semester": "Semester 1",
+          "program": "CS",
+          "programSection": "A",
+          "staffId": null,
+          "department": "Computer Science"
+        }
+      }
+    },
+    "taskAssignment": {
+      "method": "POST",
+      "endpoint": "/api/reports/generate",
+      "payload": {
+        "reportType": "task-assignment",
+        "filters": {
+          "academicPeriod": "2024-2025",
+          "semester": "Semester 1",
+          "program": "CS",
+          "programSection": "A"
+        }
+      }
+    },
+    "programTeachingLoad": {
+      "method": "POST",
+      "endpoint": "/api/reports/generate",
+      "payload": {
+        "reportType": "program-teaching-load",
+        "filters": {
+          "academicPeriod": "2024-2025",
+          "semester": "Semester 1",
+          "program": "CS"
+        }
+      }
+    },
+    "underloadOverload": {
+      "method": "POST",
+      "endpoint": "/api/reports/generate",
+      "payload": {
+        "reportType": "underload-overload",
+        "filters": {
+          "academicPeriod": "2024-2025",
+          "semester": "Semester 1"
+        }
+      }
+    },
+    "gaOptimization": {
+      "method": "POST",
+      "endpoint": "/api/reports/generate",
+      "payload": {
+        "reportType": "ga-optimization",
+        "filters": {
+          "academicPeriod": "2024-2025",
+          "semester": "Semester 1"
+        }
+      }
+    },
+    "changeRequests": {
+      "method": "POST",
+      "endpoint": "/api/reports/generate",
+      "payload": {
+        "reportType": "change-requests",
+        "filters": {
+          "academicPeriod": "2024-2025",
+          "semester": "Semester 1"
+        }
+      }
+    },
+    "moduleTeaching": {
+      "method": "POST",
+      "endpoint": "/api/reports/generate",
+      "payload": {
+        "reportType": "module-teaching",
+        "filters": {
+          "academicPeriod": "2024-2025",
+          "semester": "Semester 1",
+          "program": "CS"
+        }
+      }
+    },
+    "staffActivity": {
+      "method": "POST",
+      "endpoint": "/api/reports/generate",
+      "payload": {
+        "reportType": "staff-activity",
+        "filters": {
+          "academicPeriod": "2024-2025",
+          "semester": "Semester 1",
+          "staffId": 1
+        }
+      }
+    }
+  }
+}
+
+
+
