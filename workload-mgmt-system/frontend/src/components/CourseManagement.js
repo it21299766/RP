@@ -407,7 +407,6 @@ const CourseManagement = ({ userRole = 'Administrator' }) => {
           <h1 className="course-title">Course Management</h1>
         </div>
         <div className="course-header-right">
-          <button className="deploy-button">Deploy</button>
           <button className="menu-button">⋮</button>
         </div>
       </div>
@@ -515,7 +514,7 @@ const CourseManagement = ({ userRole = 'Administrator' }) => {
 
       {activeTab === 'add-course' && isAdministrator && (
         <div className="add-course-content">
-          <h2 className="course-form-heading">Add New Course</h2>
+          <h2 className="course-form-heading">{editingCourse ? 'Edit Course' : 'Add New Course'}</h2>
           <div className="form-container">
             <form className="course-form" onSubmit={handleSubmit}>
               <div className="form-columns">
@@ -791,7 +790,7 @@ const CourseManagement = ({ userRole = 'Administrator' }) => {
                   type="submit" 
                   className="submit-button"
                 >
-                  Add Course
+                  {editingCourse ? 'Update Course' : 'Add Course'}
                 </button>
               </div>
             </form>

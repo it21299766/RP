@@ -90,7 +90,7 @@ const StaffManagement = ({ userRole = 'Administrator', currentUserEmail = '' }) 
         setSelectedStaff(userProfile);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line
   }, [currentUser, staffMembers.length]);
 
   useEffect(() => {

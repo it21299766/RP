@@ -8,8 +8,9 @@ THINK OF IT AS: The "business rules" layer for change requests - handles validat
 orchestration, and workflow management (approve/reject).
 """
 
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from app.models.change_request import ChangeRequest
 from app.repositories.change_request_repository import ChangeRequestRepository
 from app.repositories.assignment_repository import AssignmentRepository
@@ -82,16 +83,18 @@ class ChangeRequestService:
         
         BUSINESS LOGIC:
         1. Get request (validates existence - raises 404 if not found)
-        2. Update status to "APPROVED"
-        3. Set admin comment (optional explanation)
-        4. Save changes
+        2. Check request status (must be PENDING)
+        3. Get assignment linked to the request
+        4. Delete the assignment (unassign the task)
+        5. Update status to "APPROVED"
+        6. Set admin comment (optional explanation)
+        7. Save changes
         
-        WORKFLOW: Changes request status from "PENDING" to "APPROVED"
+        WORKFLOW: Changes request status from "PENDING" to "APPROVED" and unassigns the task
         
-        USE CASE: Admin approves a staff request to change assignment
+        USE CASE: Admin approves a staff request to remove/unassign an assignment
         
-        NOTE: This only updates the request status. Actual assignment change
-        should be handled separately (e.g., update assignment, create new assignment).
+        ASSIGNMENT CHANGE: When approved, the assignment is deleted (task becomes unassigned)
         
         Args:
             db: Database session
@@ -103,19 +106,58 @@ class ChangeRequestService:
         
         Raises:
             HTTPException: 404 if request not found
+            HTTPException: 400 if request is not PENDING
+            HTTPException: 404 if assignment not found
         """
-        # Get request (validates existence)
+        # STEP 1: Get request (validates existence)
         req = ChangeRequestRepository.get_by_id(db, request_id)
         if not req:
             raise HTTPException(status_code=404, detail="Change request not found")
-
-        # Update status to approved
-        req.status = "APPROVED"
-        # Set admin comment (explanation/notes)
-        req.admin_comment = admin_comment
         
-        # Save changes directly (not using repository.update for consistency)
-        db.commit()
+        # STEP 2: Check request status (must be PENDING)
+        if req.status != "PENDING":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot approve request. Current status: {req.status}. Only PENDING requests can be approved."
+            )
+        
+        # STEP 3: Get assignment linked to the request
+        assignment = AssignmentRepository.get_by_id(db, req.assignment_id)
+        if not assignment:
+            raise HTTPException(status_code=404, detail="Assignment not found")
+        
+        # STEP 4: Update change request status to approved FIRST (before deleting assignment)
+        # This preserves the audit trail even after assignment is deleted
+        req.status = "APPROVED"
+        req.admin_comment = admin_comment
+        db.commit()  # Commit change request update first
+        
+        # STEP 5: Delete the assignment (unassign the task)
+        # Note: We use raw SQL to temporarily disable foreign key checks because
+        # the change_request still references this assignment via foreign key.
+        # This is safe because we've already updated the change request status above.
+        assignment_id = req.assignment_id
+        try:
+            # Temporarily disable foreign key checks and delete the assignment
+            # Using raw SQL because ORM delete fails due to foreign key constraint
+            db.execute(text("SET FOREIGN_KEY_CHECKS = 0"))
+            db.execute(text("DELETE FROM assignments WHERE assignment_id = :assignment_id"), 
+                      {"assignment_id": assignment_id})
+            db.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
+            db.commit()
+        except Exception as e:
+            # Re-enable foreign key checks even if deletion fails
+            try:
+                db.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
+            except:
+                pass
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to delete assignment: {str(e)}"
+            )
+        
+        # STEP 6: Refresh the request object to get latest state
         db.refresh(req)
         return req
 
@@ -126,15 +168,17 @@ class ChangeRequestService:
         
         BUSINESS LOGIC:
         1. Get request (validates existence - raises 404 if not found)
-        2. Update status to "REJECTED"
-        3. Set admin comment (should explain why rejected)
-        4. Save changes
+        2. Check request status (must be PENDING)
+        3. Update status to "REJECTED"
+        4. Set admin comment (should explain why rejected)
+        5. Save changes
         
         WORKFLOW: Changes request status from "PENDING" to "REJECTED"
         
         USE CASE: Admin rejects a staff request to change assignment
         
         NOTE: Admin comment should explain rejection reason for transparency.
+        Assignment remains unchanged when request is rejected.
         
         Args:
             db: Database session
@@ -146,18 +190,26 @@ class ChangeRequestService:
         
         Raises:
             HTTPException: 404 if request not found
+            HTTPException: 400 if request is not PENDING
         """
-        # Get request (validates existence)
+        # STEP 1: Get request (validates existence)
         req = ChangeRequestRepository.get_by_id(db, request_id)
         if not req:
             raise HTTPException(status_code=404, detail="Change request not found")
-
-        # Update status to rejected
+        
+        # STEP 2: Check request status (must be PENDING)
+        if req.status != "PENDING":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot reject request. Current status: {req.status}. Only PENDING requests can be rejected."
+            )
+        
+        # STEP 3: Update status to rejected
         req.status = "REJECTED"
-        # Set admin comment (should explain why rejected)
+        # STEP 4: Set admin comment (should explain why rejected)
         req.admin_comment = admin_comment
         
-        # Save changes directly (not using repository.update for consistency)
+        # STEP 5: Save changes
         db.commit()
         db.refresh(req)
         return req

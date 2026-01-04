@@ -10,6 +10,7 @@ import ReportsDashboard from './components/ReportsDashboard';
 import MyWorkload from './components/MyWorkload';
 import MyProfile from './components/MyProfile';
 import ChangeRequest from './components/ChangeRequest';
+import AdminChangeRequest from './components/AdminChangeRequest';
 import Login from './components/Login';
 import { AuthContext } from './context/AuthContext';
 import Swal from 'sweetalert2';
@@ -92,6 +93,8 @@ function App() {
         return <StaffManagement userRole={userRole} currentUserEmail={currentUserEmail} />;
       case 'change-request':
         return <ChangeRequest />;
+      case 'change-request-management':
+        return <AdminChangeRequest />;
       default:
         return <Dashboard />;
     }

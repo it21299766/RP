@@ -9,6 +9,7 @@ THINK OF IT AS: The "contract" between frontend and backend - defines what data 
 
 from pydantic import BaseModel
 from typing import Optional
+from datetime import datetime
 
 
 class ChangeRequestCreate(BaseModel):
@@ -74,6 +75,7 @@ class ChangeRequestResponse(ChangeRequestCreate):
     request_id: int  # Database-generated primary key
     status: str  # Workflow status ("PENDING", "APPROVED", "REJECTED")
     admin_comment: Optional[str]  # Admin's comment (if reviewed)
+    created_at: Optional[datetime] = None  # Timestamp when request was created
 
     class Config:
         orm_mode = True  # Enables SQLAlchemy model conversion (Pydantic v1 syntax)

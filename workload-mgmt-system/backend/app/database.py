@@ -7,12 +7,27 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from typing import Generator
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Database URL from environment variable
-DATABASE_URL = os.getenv(
-    "DATABASE_URL", 
-    "mysql+pymysql://root:root@localhost:3307/wam_db"
-)
+# IMPORTANT: Use .env file for database configuration
+# Create .env file in backend/ directory with DATABASE_URL=mysql+pymysql://username:password@host:port/database_name
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+# If DATABASE_URL is not set in .env file, raise an error
+if not DATABASE_URL:
+    raise ValueError(
+        "DATABASE_URL environment variable is not set. "
+        "Please create a .env file in the backend/ directory with DATABASE_URL. "
+        "Example: DATABASE_URL=mysql+pymysql://root:root@localhost:3307/wam_db"
+    )
+
+# HARDCODED FALLBACK (COMMENTED OUT - USE .env FILE INSTEAD)
+# Uncomment below only if you need a hardcoded fallback (not recommended for production)
+# DATABASE_URL = "mysql+pymysql://root:root@localhost:3307/wam_db"
 
 # Create SQLAlchemy engine
 engine = create_engine(

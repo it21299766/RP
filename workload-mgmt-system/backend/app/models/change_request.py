@@ -11,7 +11,8 @@ EXAMPLE: Staff requests to swap "DBMS Lecture" assignment with another staff mem
 WORKFLOW: Staff creates request → Admin reviews → Approved/Rejected
 """
 
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
+from sqlalchemy.sql import func
 from app.database import Base
 
 
@@ -87,3 +88,14 @@ class ChangeRequest(Base):
     # EXAMPLES: "Approved - workload balanced", "Rejected - no suitable replacement"
     # NOTE: Optional field - only filled when admin reviews request
     admin_comment = Column(String(255), nullable=True)
+    
+    # CREATED_AT: Timestamp when the change request was created
+    # SIGNIFICANCE: Tracks when the request was submitted
+    # USECASE: 
+    #   - Display submission date to staff and admin
+    #   - Sort requests by date
+    #   - Audit trail and reporting
+    # FORMAT: DATETIME in database, ISO format in API
+    # DEFAULT: Automatically set to current timestamp when request is created
+    # NOTE: Uses server_timezone (MySQL DATETIME)
+    created_at = Column(DateTime(timezone=False), server_default=func.now(), nullable=False)

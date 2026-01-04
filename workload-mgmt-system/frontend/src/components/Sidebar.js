@@ -13,16 +13,17 @@ const Sidebar = ({ onNavigate, currentPage, userRole, onRoleChange, isAuthentica
         { id: 'my-workload', label: 'My Workload', icon: '📋' },
         { id: 'change-request', label: 'Change Request', icon: '📝' }
       ];
-    } else {
-      return [
-        { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
-        { id: 'staff-management', label: 'Staff Management', icon: '👔' },
-        { id: 'course-management', label: 'Course Management', icon: '📚' },
-        { id: 'task-management', label: 'Task Management', icon: '✅' },
-        { id: 'allocations', label: 'Allocations', icon: '📄' },
-        { id: 'reports', label: 'Reports', icon: '📊' }
-      ];
-    }
+      } else {
+        return [
+          { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
+          { id: 'staff-management', label: 'Staff Management', icon: '👔' },
+          { id: 'course-management', label: 'Course Management', icon: '📚' },
+          { id: 'task-management', label: 'Task Management', icon: '✅' },
+          { id: 'allocations', label: 'Allocations', icon: '📄' },
+          { id: 'change-request-management', label: 'Change Requests', icon: '📝' },
+          { id: 'reports', label: 'Reports', icon: '📊' }
+        ];
+      }
   };
 
   const navItems = getNavItems();
@@ -36,7 +37,8 @@ const Sidebar = ({ onNavigate, currentPage, userRole, onRoleChange, isAuthentica
     { id: 'reports', label: 'Reports', icon: '📊', adminOnly: false },
     { id: 'my-profile', label: 'My Profile', icon: '👤', staffOnly: true },
     { id: 'my-workload', label: 'My Workload', icon: '📋', staffOnly: true },
-    { id: 'change-request', label: 'Change Request', icon: '📝', staffOnly: true }
+    { id: 'change-request', label: 'Change Request', icon: '📝', staffOnly: true },
+    { id: 'change-request-management', label: 'Change Requests', icon: '📝', adminOnly: true }
   ];
   
   const radioNavItems = allRadioNavItems.filter(item => {

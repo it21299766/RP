@@ -105,7 +105,13 @@ const ChangeRequest = () => {
   const assignmentsWithStatus = assignments.map(getAssignmentWithRequest);
 
   // Filter assignments - only show assigned tasks
+  // Note: status field comes from assignment status ('assigned' or 'completed')
   const assignedTasks = assignmentsWithStatus.filter(a => a.status === 'assigned');
+  
+  // Debug: Log assignments to see what we're getting
+  console.log('Assignments:', assignments);
+  console.log('Assigned tasks (status=assigned):', assignedTasks);
+  console.log('Available for change request:', assignedTasks.filter(a => !a.hasPendingRequest));
 
   const getStatusBadgeClass = (status) => {
     switch (status) {
@@ -214,8 +220,18 @@ const ChangeRequest = () => {
                 className="btn-primary"
                 onClick={() => setShowForm(true)}
                 disabled={assignedTasks.filter(a => !a.hasPendingRequest).length === 0}
+                title={assignedTasks.length === 0 
+                  ? 'No assigned tasks available' 
+                  : assignedTasks.filter(a => !a.hasPendingRequest).length === 0
+                    ? 'All tasks have pending change requests'
+                    : 'Create a new change request'}
               >
                 + New Change Request
+                {assignedTasks.length > 0 && (
+                  <span style={{ marginLeft: '8px', fontSize: '0.85em', opacity: 0.7 }}>
+                    ({assignedTasks.filter(a => !a.hasPendingRequest).length} available)
+                  </span>
+                )}
               </button>
             </div>
           )}
@@ -252,7 +268,7 @@ const ChangeRequest = () => {
                             </span>
                           </td>
                           <td className="comment-cell">{request.admin_comment || '—'}</td>
-                          <td>—</td>
+                          <td>{request.created_at ? new Date(request.created_at).toLocaleString() : '—'}</td>
                         </tr>
                       );
                     })}
