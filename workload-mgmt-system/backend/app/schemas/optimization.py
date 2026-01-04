@@ -58,7 +58,8 @@ class OptimizedAssignment(BaseModel):
     # STAFF_ID: Which staff member is assigned
     # WHAT: Identifies the staff member recommended for this task
     # EXAMPLE: Staff ID 5 = "Dr. Jane Smith"
-    staff_id: int
+    # NOTE: Can be None if task is UNASSIGNED (no eligible staff found)
+    staff_id: Optional[int]
     
     # HOURS: Number of hours for this assignment
     # WHAT: Workload hours for this specific assignment

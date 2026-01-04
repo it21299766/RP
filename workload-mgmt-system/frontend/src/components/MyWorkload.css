@@ -1,0 +1,276 @@
+.my-workload {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.workload-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.workload-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.workload-icon {
+  font-size: 2rem;
+}
+
+.workload-header h1 {
+  margin: 0;
+  font-size: 2rem;
+  color: #333;
+}
+
+.workload-subtitle {
+  margin: 0;
+  color: #666;
+  font-size: 0.9rem;
+  margin-left: 0.5rem;
+}
+
+/* Summary Cards */
+.workload-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.summary-card {
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.summary-card-icon {
+  font-size: 2rem;
+}
+
+.summary-card-content {
+  flex: 1;
+}
+
+.summary-card-value {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #2c3e50;
+  margin-bottom: 0.25rem;
+}
+
+.summary-card-label {
+  font-size: 0.9rem;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Filter Buttons */
+.workload-filters {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.filter-button {
+  padding: 0.75rem 1.5rem;
+  border: 2px solid #ddd;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #666;
+  transition: all 0.2s;
+}
+
+.filter-button:hover {
+  border-color: #3498db;
+  color: #3498db;
+}
+
+.filter-button.active {
+  background: #3498db;
+  border-color: #3498db;
+  color: white;
+}
+
+/* Assignments Table */
+.workload-content {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.assignments-table-container {
+  overflow-x: auto;
+}
+
+.workload-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.workload-table thead {
+  background: #f8f9fa;
+}
+
+.workload-table th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 2px solid #dee2e6;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
+}
+
+.workload-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #e9ecef;
+  color: #555;
+}
+
+.workload-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.workload-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Task Type Badge */
+.task-type-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.task-type-lecture {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.task-type-lab {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.task-type-tutorial {
+  background: #e8f5e9;
+  color: #388e3c;
+}
+
+.task-type-exam {
+  background: #fff3e0;
+  color: #f57c00;
+}
+
+.task-type-research {
+  background: #fce4ec;
+  color: #c2185b;
+}
+
+.task-type-admin {
+  background: #e0e0e0;
+  color: #424242;
+}
+
+.task-type-unknown {
+  background: #f5f5f5;
+  color: #757575;
+}
+
+/* Status Badge */
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.status-assigned {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status-completed {
+  background: #d4edda;
+  color: #155724;
+}
+
+/* Hours Cell */
+.hours-cell {
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+/* Empty State */
+.empty-state {
+  padding: 4rem 2rem;
+  text-align: center;
+}
+
+.empty-state-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.empty-state-message {
+  color: #666;
+  font-size: 1.1rem;
+}
+
+/* Loading State */
+.loading-message {
+  padding: 4rem 2rem;
+  text-align: center;
+  color: #666;
+  font-size: 1.1rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .my-workload {
+    padding: 1rem;
+  }
+
+  .workload-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .workload-table {
+    font-size: 0.9rem;
+  }
+
+  .workload-table th,
+  .workload-table td {
+    padding: 0.75rem 0.5rem;
+  }
+}
+

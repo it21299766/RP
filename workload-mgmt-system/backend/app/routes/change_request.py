@@ -58,3 +58,17 @@ def reject_request(
 ):
     """Reject a change request. ADMIN only."""
     return ChangeRequestService.reject_request(db, request_id, payload.admin_comment)
+
+
+@router.get("", response_model=list[ChangeRequestResponse])
+def get_change_requests(
+    db: Session = Depends(get_db),
+    current_user: Staff = Depends(get_current_user)
+):
+    """
+    Get all change requests.
+    ACADEMIC sees own requests only, ADMIN sees all.
+    """
+    if current_user.role == "ACADEMIC":
+        return ChangeRequestService.get_by_staff(db, current_user.staff_id)
+    return ChangeRequestService.get_all(db)

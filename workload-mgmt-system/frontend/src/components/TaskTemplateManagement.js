@@ -163,23 +163,23 @@ const TaskTemplateManagement = ({ userRole = 'Administrator' }) => {
     if (!isAdministrator) {
       setPopup({
         show: true,
-        message: 'You do not have permission to delete templates.',
+        message: 'You do not have permission to mark templates as inactive.',
         type: 'error'
       });
       return;
     }
 
-    if (window.confirm('Are you sure you want to delete this template?')) {
+    if (window.confirm('Are you sure you want to mark this template as inactive? This will hide it from active template lists, but existing task instances will remain unaffected.')) {
       try {
         await taskTemplateApi.delete(templateId);
         setPopup({
           show: true,
-          message: 'Template deleted successfully',
-          type: 'delete'
+          message: 'Template marked as inactive successfully',
+          type: 'success'
         });
         loadTemplates();
       } catch (err) {
-        console.error('Error deleting template:', err);
+        console.error('Error marking template as inactive:', err);
         setPopup({
           show: true,
           message: `Error: ${err.message || 'Unknown error'}`,
@@ -284,12 +284,15 @@ const TaskTemplateManagement = ({ userRole = 'Administrator' }) => {
                               >
                                 Edit
                               </button>
-                              <button 
-                                className="action-button delete"
-                                onClick={() => handleDelete(template.id)}
-                              >
-                                Delete
-                              </button>
+                              {template.is_active && (
+                                <button 
+                                  className="action-button delete"
+                                  onClick={() => handleDelete(template.id)}
+                                  title="Mark as inactive (soft delete)"
+                                >
+                                  Mark as Inactive
+                                </button>
+                              )}
                             </>
                           )}
                         </td>

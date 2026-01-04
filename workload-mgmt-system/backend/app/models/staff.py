@@ -126,3 +126,11 @@ class Staff(Base):
     #   - Useful for soft-deletion (keep data, disable access)
     # NOTE: Inactive accounts cannot login or access the system
     is_active = Column(Boolean, default=True, nullable=False)
+    
+    # PROFILE_PICTURE_PATH: Path to profile picture file
+    # SIGNIFICANCE: Stores the file path/URL for the staff member's profile picture
+    # FORMAT: Relative path from uploads directory (e.g., "profiles/staff_7.jpg")
+    # USECASE: Display profile picture in UI, staff listings, reports
+    # NOTE: Nullable - staff may not have a profile picture
+    # EXAMPLE: "profiles/staff_7.jpg" or "profiles/staff_15.png"
+    profile_picture_path = Column(String(255), nullable=True)

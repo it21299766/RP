@@ -119,6 +119,9 @@
 
 .summary-value {
   font-size: 1.75rem;
+  max-width: 100%;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
   font-weight: 600;
   color: #1f2937;
 }

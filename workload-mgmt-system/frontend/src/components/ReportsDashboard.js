@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import './ReportsDashboard.css';
 import ReportFiltersModal from './ReportFiltersModal';
 import ReportViewer from './ReportViewer';
 import { downloadPDF, downloadCSV } from '../utils/reportExports';
+import { reportsApi } from '../api/reportsApi';
+import { AuthContext } from '../context/AuthContext';
 
 const ReportsDashboard = ({ userRole = 'Administrator' }) => {
+  const { user: currentUser } = useContext(AuthContext);
   const [selectedReport, setSelectedReport] = useState(null);
   const [showFiltersModal, setShowFiltersModal] = useState(false);
   const [reportData, setReportData] = useState(null);
@@ -12,7 +15,8 @@ const ReportsDashboard = ({ userRole = 'Administrator' }) => {
     academicPeriod: '',
     semester: '',
     program: '',
-    programSection: ''
+    programSection: '',
+    staff: ''
   });
 
   const isAdministrator = userRole === 'Administrator';
@@ -74,17 +78,10 @@ const ReportsDashboard = ({ userRole = 'Administrator' }) => {
   const staffReports = [
     {
       id: 'staff-workload-summary',
-      name: 'Staff Workload Summary',
-      description: 'Hours by category + overload flags',
+      name: 'My Workload Summary',
+      description: 'Your hours by category + overload flags',
       icon: '📊',
       availableFor: ['Administrator', 'Staff']
-    },
-    {
-      id: 'staff-activity',
-      name: 'Staff Activity Report',
-      description: 'Tasks assigned to that staff',
-      icon: '📋',
-      availableFor: ['Staff']
     }
   ];
 
@@ -95,123 +92,275 @@ const ReportsDashboard = ({ userRole = 'Administrator' }) => {
     setShowFiltersModal(true);
   };
 
-  const handleGenerateReport = (reportFilters) => {
+  const handleGenerateReport = async (reportFilters) => {
     setFilters(reportFilters);
     setShowFiltersModal(false);
     
-    // TODO: Fetch report data from API
-    // For now, using mock data
-    let mockTableData = [];
-    let mockChartData = [];
-    
-    // Generate mock data based on report type
-    if (selectedReport === 'task-assignment') {
-      mockTableData = [
-        { taskName: 'Review Course Materials', staffName: 'Dr. John Smith', domain: 'Teaching', hoursPerWeek: 8, totalHours: 40 },
-        { taskName: 'Prepare Exam Questions', staffName: 'Dr. Sarah Johnson', domain: 'Assessment', hoursPerWeek: 5, totalHours: 20 },
-        { taskName: 'Update Syllabus', staffName: 'Dr. Michael Williams', domain: 'Admin', hoursPerWeek: 3, totalHours: 15 },
-        { taskName: 'Research Paper Review', staffName: 'Dr. Emily Brown', domain: 'Research', hoursPerWeek: 6, totalHours: 30 },
-        { taskName: 'Student Consultation', staffName: 'Dr. David Davis', domain: 'Teaching', hoursPerWeek: 4, totalHours: 20 }
-      ];
-      mockChartData = mockTableData.map(item => ({
-        name: `${item.taskName} - ${item.staffName}`,
-        hours: item.hoursPerWeek
-      }));
-    } else {
-      mockTableData = [
-        { staffName: 'Dr. John Smith', domain: 'Teaching', tasks: 3, totalHours: 18, teachingHours: 12, adminHours: 4, researchHours: 2, status: 'normal' },
-        { staffName: 'Dr. Sarah Johnson', domain: 'Teaching', tasks: 2, totalHours: 15, teachingHours: 10, adminHours: 3, researchHours: 2, status: 'normal' },
-        { staffName: 'Dr. Michael Williams', domain: 'Admin', tasks: 4, totalHours: 20, teachingHours: 8, adminHours: 8, researchHours: 4, status: 'normal' }
-      ];
-      mockChartData = mockTableData.map(item => ({
-        name: item.staffName,
-        hours: item.totalHours
-      }));
+    try {
+      const params = {
+        semester: reportFilters.semester || undefined,
+        program_id: reportFilters.program ? parseInt(reportFilters.program) : undefined,
+        department: reportFilters.department || undefined,
+        staff_id: isStaff ? currentUser.staff_id : (reportFilters.staff ? parseInt(reportFilters.staff) : undefined)
+      };
+
+      let apiResponse = null;
+      let workloadByTypeData = null;
+      
+      switch (selectedReport) {
+        case 'staff-workload-summary':
+          apiResponse = await reportsApi.getStaffWorkloadSummary(params);
+          workloadByTypeData = await reportsApi.getWorkloadByType(params);
+          break;
+        case 'program-teaching-load':
+          apiResponse = await reportsApi.getProgramTeachingLoad(params);
+          break;
+        case 'task-assignment':
+          // Use workload-by-type for task assignment report
+          apiResponse = await reportsApi.getWorkloadByType(params);
+          break;
+        case 'underload-overload':
+          apiResponse = await reportsApi.getOverloadUnderloadDistribution(params);
+          break;
+        case 'ga-optimization':
+          apiResponse = await reportsApi.getGAOptimizationSummary(params);
+          break;
+        case 'change-requests':
+          apiResponse = await reportsApi.getChangeRequestSummary(params);
+          break;
+        case 'module-teaching':
+          apiResponse = await reportsApi.getProgramSectionTeachingLoad(params);
+          break;
+        default:
+          console.error('Unknown report type:', selectedReport);
+          return;
+      }
+
+      // Transform API response based on report type
+      let transformedTableData = [];
+      let transformedChartData = [];
+      let transformedSummary = {};
+
+      if (selectedReport === 'staff-workload-summary') {
+        // Create a map of staff_id to task type hours breakdown
+        const staffTypeHoursMap = {};
+        if (workloadByTypeData && workloadByTypeData.data) {
+          workloadByTypeData.data.forEach(item => {
+            const staffId = item.staff_id;
+            if (!staffTypeHoursMap[staffId]) {
+              staffTypeHoursMap[staffId] = { teaching: 0, admin: 0, research: 0 };
+            }
+            const taskType = (item.task_type || '').toLowerCase();
+            const hours = item.type_hours || 0;
+            if (taskType === 'lecture' || taskType === 'lab' || taskType === 'tutorial' || taskType === 'exam') {
+              staffTypeHoursMap[staffId].teaching += hours;
+            } else if (taskType === 'admin' || taskType === 'administrative') {
+              staffTypeHoursMap[staffId].admin += hours;
+            } else if (taskType === 'research') {
+              staffTypeHoursMap[staffId].research += hours;
+            }
+          });
+        }
+        
+        transformedTableData = (apiResponse.data || []).map(item => {
+          const staffId = item.staff_id;
+          const typeHours = staffTypeHoursMap[staffId] || { teaching: 0, admin: 0, research: 0 };
+          
+          return {
+            ...item,
+            staffName: item.full_name || item.staff_name || item.name || 'Unknown',
+            totalHours: item.total_assigned_hours || item.total_hours || item.hours || 0,
+            domain: item.domain_name || item.department || item.domain || 'N/A',
+            tasks: item.total_assignments || item.task_count || item.tasks || 0,
+            teachingHours: typeHours.teaching || item.teaching_hours || 0,
+            adminHours: typeHours.admin || item.admin_hours || 0,
+            researchHours: typeHours.research || item.research_hours || 0,
+            status: item.workload_status || item.status || 'Normal'
+          };
+        });
+
+        transformedChartData = transformedTableData.map(item => ({
+          name: item.staffName || 'Unknown',
+          hours: item.totalHours || 0
+        }));
+
+        const totalHours = transformedTableData.reduce((sum, item) => sum + (item.totalHours || 0), 0);
+        const totalTeaching = transformedTableData.reduce((sum, item) => sum + (item.teachingHours || 0), 0);
+        const totalAdmin = transformedTableData.reduce((sum, item) => sum + (item.adminHours || 0), 0);
+        const totalResearch = transformedTableData.reduce((sum, item) => sum + (item.researchHours || 0), 0);
+        
+        transformedSummary = {
+          hoursAssigned: totalHours || 0,
+          teachingPercent: totalHours > 0 ? Math.round((totalTeaching / totalHours) * 100) : 0,
+          adminPercent: totalHours > 0 ? Math.round((totalAdmin / totalHours) * 100) : 0,
+          researchPercent: totalHours > 0 ? Math.round((totalResearch / totalHours) * 100) : 0,
+          overload: transformedTableData.some(item => item.status === 'OVERLOADED')
+        };
+      } else if (selectedReport === 'program-teaching-load') {
+        transformedTableData = (apiResponse.data || []).map(item => ({
+          programName: item.program_name || item.program_code || 'N/A',
+          programCode: item.program_code || 'N/A',
+          domain: item.domain_name || 'N/A',
+          totalTasks: item.total_task_instances || 0,
+          assignedTasks: item.assigned_tasks || 0,
+          unassignedTasks: item.unassigned_tasks || 0,
+          totalHours: item.total_program_hours || 0,
+          assignedHours: item.assigned_hours || 0
+        }));
+
+        transformedChartData = transformedTableData.map(item => ({
+          name: item.programName || 'Unknown',
+          hours: item.assignedHours || 0
+        }));
+
+        const totalHours = transformedTableData.reduce((sum, item) => sum + (item.assignedHours || 0), 0);
+        transformedSummary = {
+          hoursAssigned: totalHours || 0,
+          teachingPercent: 100,
+          adminPercent: 0,
+          researchPercent: 0,
+          overload: false
+        };
+      } else if (selectedReport === 'task-assignment') {
+        transformedTableData = (apiResponse.data || []).map(item => ({
+          staffName: item.full_name || item.staff_name || 'Unknown',
+          taskType: item.task_type || 'N/A',
+          hours: item.type_hours || 0,
+          taskCount: item.task_count || 0,
+          staffId: item.staff_id
+        }));
+
+        transformedChartData = transformedTableData.map(item => ({
+          name: `${item.staffName} - ${item.taskType}`,
+          hours: item.hours || 0
+        }));
+
+        const totalHours = transformedTableData.reduce((sum, item) => sum + (item.hours || 0), 0);
+        transformedSummary = {
+          hoursAssigned: totalHours || 0,
+          teachingPercent: 0,
+          adminPercent: 0,
+          researchPercent: 0,
+          overload: false
+        };
+      } else if (selectedReport === 'underload-overload') {
+        transformedTableData = (apiResponse.data || []).map(item => ({
+          status: item.workload_status || 'UNKNOWN',
+          staffCount: item.staff_count || 0
+        }));
+
+        transformedChartData = transformedTableData.map(item => ({
+          name: item.status || 'Unknown',
+          value: item.staffCount || 0
+        }));
+
+        const totalStaff = transformedTableData.reduce((sum, item) => sum + (item.staffCount || 0), 0);
+        transformedSummary = {
+          hoursAssigned: 0,
+          teachingPercent: 0,
+          adminPercent: 0,
+          researchPercent: 0,
+          overload: transformedTableData.some(item => item.status === 'OVERLOADED' && item.staffCount > 0)
+        };
+      } else if (selectedReport === 'ga-optimization') {
+        // GA optimization returns a dictionary directly, not wrapped in data
+        const gaData = apiResponse;
+        transformedTableData = [gaData]; // Single row with summary data
+        transformedChartData = [
+          { name: 'System Assignments', value: gaData.system_assignments || 0 },
+          { name: 'Admin Assignments', value: gaData.admin_assignments || 0 }
+        ];
+        transformedSummary = {
+          hoursAssigned: gaData.total_assigned_hours || 0,
+          teachingPercent: 0,
+          adminPercent: 0,
+          researchPercent: 0,
+          overload: false,
+          totalAssignedTasks: gaData.total_assigned_tasks || 0,
+          totalStaff: gaData.total_staff_with_assignments || 0,
+          averageHoursPerTask: gaData.average_hours_per_task || 0,
+          systemAssignments: gaData.system_assignments || 0,
+          adminAssignments: gaData.admin_assignments || 0
+        };
+      } else if (selectedReport === 'change-requests') {
+        transformedTableData = (apiResponse.data || []).map(item => ({
+          status: item.status || 'UNKNOWN',
+          totalRequests: item.total_requests || 0,
+          uniqueStaffCount: item.unique_staff_count || 0
+        }));
+
+        transformedChartData = transformedTableData.map(item => ({
+          name: item.status || 'Unknown',
+          value: item.totalRequests || 0
+        }));
+
+        const totalRequests = transformedTableData.reduce((sum, item) => sum + (item.totalRequests || 0), 0);
+        transformedSummary = {
+          hoursAssigned: 0,
+          teachingPercent: 0,
+          adminPercent: 0,
+          researchPercent: 0,
+          overload: false,
+          totalRequests: totalRequests
+        };
+      } else if (selectedReport === 'module-teaching') {
+        transformedTableData = (apiResponse.data || []).map(item => ({
+          programCode: item.program_code || 'N/A',
+          programName: item.program_name || 'N/A',
+          sectionCode: item.section_code || 'N/A',
+          academicYear: item.academic_year || 'N/A',
+          totalTasks: item.total_tasks || 0,
+          assignedTasks: item.assigned_tasks || 0,
+          totalHours: item.total_hours || 0,
+          assignedHours: item.assigned_hours || 0,
+          assignedStaffCount: item.assigned_staff_count || 0
+        }));
+
+        transformedChartData = transformedTableData.map(item => ({
+          name: `${item.programCode} - ${item.sectionCode}`,
+          hours: item.assignedHours || 0
+        }));
+
+        const totalHours = transformedTableData.reduce((sum, item) => sum + (item.assignedHours || 0), 0);
+        transformedSummary = {
+          hoursAssigned: totalHours || 0,
+          teachingPercent: 100,
+          adminPercent: 0,
+          researchPercent: 0,
+          overload: false
+        };
+      }
+
+      const reportData = {
+        reportType: selectedReport,
+        filters: reportFilters,
+        summary: transformedSummary,
+        tableData: transformedTableData,
+        chartData: transformedChartData,
+        rawData: apiResponse
+      };
+
+      setReportData(reportData);
+    } catch (error) {
+      console.error('Error fetching report data:', error);
+      alert(`Error loading report: ${error.message || 'Unknown error'}`);
     }
-    
-    const mockData = {
-      reportType: selectedReport,
-      filters: reportFilters,
-      summary: {
-        hoursAssigned: 18,
-        teachingPercent: 60,
-        adminPercent: 25,
-        researchPercent: 15,
-        overload: false
-      },
-      tableData: mockTableData,
-      chartData: mockChartData
-    };
-    
-    setReportData(mockData);
   };
 
-  const handleDownloadPDF = (reportId) => {
-    // Generate mock data for the report
-    let mockTableData = [];
-    let mockChartData = [];
-    
-    if (reportId === 'task-assignment') {
-      mockTableData = [
-        { taskName: 'Review Course Materials', staffName: 'Dr. John Smith', domain: 'Teaching', hoursPerWeek: 8, totalHours: 40 },
-        { taskName: 'Prepare Exam Questions', staffName: 'Dr. Sarah Johnson', domain: 'Assessment', hoursPerWeek: 5, totalHours: 20 },
-        { taskName: 'Update Syllabus', staffName: 'Dr. Michael Williams', domain: 'Admin', hoursPerWeek: 3, totalHours: 15 }
-      ];
+  const handleDownloadPDF = () => {
+    if (reportData) {
+      downloadPDF(reportData);
     } else {
-      mockTableData = [
-        { staffName: 'Dr. John Smith', domain: 'Teaching', tasks: 3, totalHours: 18, teachingHours: 12, adminHours: 4, researchHours: 2, status: 'normal' }
-      ];
+      alert('Please generate a report first before downloading.');
     }
-    
-    const mockData = {
-      reportType: reportId,
-      filters: filters,
-      summary: {
-        hoursAssigned: 18,
-        teachingPercent: 60,
-        adminPercent: 25,
-        researchPercent: 15,
-        overload: false
-      },
-      tableData: mockTableData,
-      chartData: mockChartData
-    };
-    
-    downloadPDF(mockData);
   };
 
-  const handleDownloadCSV = (reportId) => {
-    // Generate mock data for the report
-    let mockTableData = [];
-    let mockChartData = [];
-    
-    if (reportId === 'task-assignment') {
-      mockTableData = [
-        { taskName: 'Review Course Materials', staffName: 'Dr. John Smith', domain: 'Teaching', hoursPerWeek: 8, totalHours: 40 },
-        { taskName: 'Prepare Exam Questions', staffName: 'Dr. Sarah Johnson', domain: 'Assessment', hoursPerWeek: 5, totalHours: 20 },
-        { taskName: 'Update Syllabus', staffName: 'Dr. Michael Williams', domain: 'Admin', hoursPerWeek: 3, totalHours: 15 }
-      ];
+  const handleDownloadCSV = () => {
+    if (reportData) {
+      downloadCSV(reportData);
     } else {
-      mockTableData = [
-        { staffName: 'Dr. John Smith', domain: 'Teaching', tasks: 3, totalHours: 18, teachingHours: 12, adminHours: 4, researchHours: 2, status: 'normal' }
-      ];
+      alert('Please generate a report first before downloading.');
     }
-    
-    const mockData = {
-      reportType: reportId,
-      filters: filters,
-      summary: {
-        hoursAssigned: 18,
-        teachingPercent: 60,
-        adminPercent: 25,
-        researchPercent: 15,
-        overload: false
-      },
-      tableData: mockTableData,
-      chartData: mockChartData
-    };
-    
-    downloadCSV(mockData);
   };
 
   const handleBackToDashboard = () => {
@@ -262,38 +411,44 @@ const ReportsDashboard = ({ userRole = 'Administrator' }) => {
             onChange={(e) => setFilters({ ...filters, semester: e.target.value })}
           >
             <option value="">Select Semester</option>
-            <option value="Semester 1">Semester 1</option>
-            <option value="Semester 2">Semester 2</option>
+            <option value="2025S1">2025 Semester 1</option>
+            <option value="2025S2">2025 Semester 2</option>
+            <option value="2024S1">2024 Semester 1</option>
+            <option value="2024S2">2024 Semester 2</option>
           </select>
         </div>
 
-        <div className="filter-group">
-          <label htmlFor="program">Program (Optional)</label>
-          <select
-            id="program"
-            className="filter-select"
-            value={filters.program}
-            onChange={(e) => setFilters({ ...filters, program: e.target.value })}
-          >
-            <option value="">All Programs</option>
-            <option value="CS">Computer Science</option>
-            <option value="MATH">Mathematics</option>
-          </select>
-        </div>
+        {!isStaff && (
+          <>
+            <div className="filter-group">
+              <label htmlFor="program">Program (Optional)</label>
+              <select
+                id="program"
+                className="filter-select"
+                value={filters.program}
+                onChange={(e) => setFilters({ ...filters, program: e.target.value })}
+              >
+                <option value="">All Programs</option>
+                <option value="1">Computer Science</option>
+                <option value="2">Mathematics</option>
+              </select>
+            </div>
 
-        <div className="filter-group">
-          <label htmlFor="program-section">Program Section (Optional)</label>
-          <select
-            id="program-section"
-            className="filter-select"
-            value={filters.programSection}
-            onChange={(e) => setFilters({ ...filters, programSection: e.target.value })}
-          >
-            <option value="">All Sections</option>
-            <option value="A">Section A</option>
-            <option value="B">Section B</option>
-          </select>
-        </div>
+            <div className="filter-group">
+              <label htmlFor="program-section">Program Section (Optional)</label>
+              <select
+                id="program-section"
+                className="filter-select"
+                value={filters.programSection}
+                onChange={(e) => setFilters({ ...filters, programSection: e.target.value })}
+              >
+                <option value="">All Sections</option>
+                <option value="1">Section A</option>
+                <option value="2">Section B</option>
+              </select>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="reports-section">
@@ -315,13 +470,13 @@ const ReportsDashboard = ({ userRole = 'Administrator' }) => {
                 </button>
                 <button
                   className="action-btn download-btn"
-                  onClick={() => handleDownloadPDF(report.id)}
+                  onClick={handleDownloadPDF}
                 >
                   📥 Download PDF
                 </button>
                 <button
                   className="action-btn download-btn"
-                  onClick={() => handleDownloadCSV(report.id)}
+                  onClick={handleDownloadCSV}
                 >
                   📄 Download CSV
                 </button>
@@ -344,4 +499,3 @@ const ReportsDashboard = ({ userRole = 'Administrator' }) => {
 };
 
 export default ReportsDashboard;
-

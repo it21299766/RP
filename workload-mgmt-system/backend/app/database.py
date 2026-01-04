@@ -11,7 +11,7 @@ import os
 # Database URL from environment variable
 DATABASE_URL = os.getenv(
     "DATABASE_URL", 
-    "mysql+pymysql://root:root@localhost:3306/wam_db"
+    "mysql+pymysql://root:root@localhost:3307/wam_db"
 )
 
 # Create SQLAlchemy engine

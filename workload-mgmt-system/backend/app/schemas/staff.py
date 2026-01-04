@@ -133,6 +133,7 @@ class StaffUpdate(BaseModel):
     # All fields are Optional - only update what's provided
     # This allows partial updates (e.g., just update designation)
     
+    name: Optional[str] = None  # Update name if provided
     designation: Optional[str] = None  # Update designation if provided
     qualification: Optional[Literal["BSc", "MSc", "PhD"]] = None  # Update qualification if provided
     specialization: Optional[str] = None  # Update specialization if provided
@@ -151,7 +152,7 @@ class StaffResponse(StaffBase):
     WHAT THIS IS FOR: Defines what data is returned when getting staff information.
     
     INHERITS FROM StaffBase: Gets all base fields
-    ADDS: staff_id and username (database-generated fields)
+    ADDS: staff_id, username, and profile_picture_path (database-generated/stored fields)
     
     EXCLUDES: password_hash (security - never return password hash!)
     
@@ -166,6 +167,12 @@ class StaffResponse(StaffBase):
     # REQUIRED: No (may be None if not yet generated)
     # SIGNIFICANCE: Used for login, shown in responses
     username: Optional[str] = None
+    
+    # PROFILE_PICTURE_PATH: Path to profile picture
+    # REQUIRED: No (may be None if no picture uploaded)
+    # SIGNIFICANCE: Used by frontend to display profile picture
+    # FORMAT: Relative path or URL
+    profile_picture_path: Optional[str] = None
 
     class Config:
         # Pydantic v2 configuration
@@ -173,3 +180,32 @@ class StaffResponse(StaffBase):
         # This is the new way (replaces orm_mode=True in Pydantic v1)
         # Enables: StaffResponse.from_orm(staff_model)
         from_attributes = True
+
+
+class PasswordUpdate(BaseModel):
+    """
+    Schema for updating staff password.
+    
+    WHAT THIS IS FOR: Defines the data needed to change a staff member's password.
+    
+    FIELDS:
+    - current_password: Current password (for verification)
+    - new_password: New password (must be provided)
+    
+    VALIDATION: Both fields are required
+    USE CASE: Allow staff to change their password securely
+    
+    SECURITY: Password will be hashed before storing (never stored as plain text)
+    """
+    # CURRENT_PASSWORD: Current password for verification
+    # REQUIRED: Yes (must provide current password to change it)
+    # SIGNIFICANCE: Security measure - prevents unauthorized password changes
+    # VALIDATION: Must match existing password_hash in database
+    current_password: str
+    
+    # NEW_PASSWORD: New password to set
+    # REQUIRED: Yes (must provide new password)
+    # SIGNIFICANCE: The new password that will replace the current one
+    # SECURITY: Will be hashed before storing (never stored as plain text)
+    # VALIDATION: Should meet password policy (length, complexity) if enforced
+    new_password: str

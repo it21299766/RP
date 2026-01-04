@@ -1,19 +1,3 @@
-/**
- * Login Component
- * 
- * Displays the login form and handles user authentication.
- * 
- * Features:
- * - Username and password input fields
- * - Form validation
- * - API authentication
- * - Error handling and display
- * - Success notification
- * - Loading state during authentication
- * 
- * @param {function} onLogin - Callback function called after successful login
- */
-
 import React, { useState, useContext } from 'react';
 import './Login.css';
 import Swal from 'sweetalert2';
@@ -21,34 +5,18 @@ import { login as loginApi } from '../api/authApi';
 import { AuthContext } from '../context/AuthContext';
 
 const Login = ({ onLogin }) => {
-  // Get login function from authentication context
   const { login } = useContext(AuthContext);
-  
-  // Form state: username and password inputs
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  
-  // UI state: error message and loading indicator
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  /**
-   * Handle form submission (login attempt)
-   * 
-   * Process:
-   * 1. Validate username and password are provided
-   * 2. Call login API with credentials
-   * 3. On success: Update auth context, show success message, call onLogin callback
-   * 4. On error: Display error message to user
-   * 
-   * @param {Event} e - Form submit event
-   */
   const handleSubmit = async (e) => {
-    e.preventDefault();  // Prevent default form submission
-    setError('');        // Clear previous errors
-    setLoading(true);    // Show loading state
+    e.preventDefault();
+    setError('');
+    setLoading(true);
 
-    // Validate inputs: username and password must be provided
+    // Validate inputs
     if (!username.trim()) {
       setError('Please enter your username.');
       setLoading(false);
@@ -61,15 +29,12 @@ const Login = ({ onLogin }) => {
     }
 
     try {
-      // Call login API with username and password
-      // API returns: { access_token, token_type, user }
+      // Call login API with username
       const response = await loginApi(username.trim(), password);
       
-      // Update authentication context with token and user data
-      // This sets isAuthenticated=true and makes user data available app-wide
+      // Update AuthContext
       login(response.access_token, response.user);
 
-      // Show success notification
       await Swal.fire({
         icon: 'success',
         title: 'Login Successful',
@@ -79,17 +44,15 @@ const Login = ({ onLogin }) => {
         timerProgressBar: true,
       });
 
-      // Call onLogin callback if provided (navigates to dashboard)
+      // Call onLogin callback if provided
       if (onLogin) {
         onLogin();
       }
     } catch (err) {
-      // Handle login errors
-      // Extract error message from API response or use generic message
+      // Handle error
       const errorMessage = err.response?.data?.detail || err.message || 'Login failed. Please try again.';
       setError(errorMessage);
       
-      // Show error notification
       await Swal.fire({
         icon: 'error',
         title: 'Login Failed',
@@ -97,7 +60,6 @@ const Login = ({ onLogin }) => {
         confirmButtonText: 'OK'
       });
     } finally {
-      // Always reset loading state (whether success or error)
       setLoading(false);
     }
   };

@@ -4,8 +4,10 @@ import PopupMessage from './PopupMessage';
 import { optimizationApi } from '../api/optimizationApi';
 import { staffApi } from '../api/staffApi';
 
-const WorkloadAllocation = () => {
-  const [activeTab, setActiveTab] = useState('run-allocation');
+const WorkloadAllocation = ({ userRole = 'Administrator' }) => {
+  const isAdministrator = userRole === 'Administrator';
+  const isStaff = userRole === 'Staff';
+  const [activeTab, setActiveTab] = useState(isStaff ? 'allocation-results' : 'run-allocation');
   const [formData, setFormData] = useState({
     semester: '',
     department: '',
@@ -95,17 +97,19 @@ const WorkloadAllocation = () => {
       
       <div className="allocation-header">
         <div className="allocation-header-left">
-          <h1 className="allocation-title">Workload Allocation</h1>
+          <h1 className="allocation-title">{isStaff ? 'My Workload' : 'Workload Allocation'}</h1>
         </div>
       </div>
 
       <div className="allocation-tabs">
-        <button
-          className={`allocation-tab-button ${activeTab === 'run-allocation' ? 'active' : ''}`}
-          onClick={() => setActiveTab('run-allocation')}
-        >
-          Run Allocation
-        </button>
+        {isAdministrator && (
+          <button
+            className={`allocation-tab-button ${activeTab === 'run-allocation' ? 'active' : ''}`}
+            onClick={() => setActiveTab('run-allocation')}
+          >
+            Run Allocation
+          </button>
+        )}
         <button
           className={`allocation-tab-button ${activeTab === 'allocation-results' ? 'active' : ''}`}
           onClick={() => setActiveTab('allocation-results')}
@@ -114,7 +118,7 @@ const WorkloadAllocation = () => {
         </button>
       </div>
 
-      {activeTab === 'run-allocation' && (
+      {activeTab === 'run-allocation' && isAdministrator && (
         <div className="run-allocation-content">
           <div className="configure-allocation-section">
             <h2 className="section-title">Configure Allocation</h2>

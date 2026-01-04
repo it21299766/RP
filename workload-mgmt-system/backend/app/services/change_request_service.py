@@ -24,6 +24,16 @@ class ChangeRequestService:
     """
 
     @staticmethod
+    def get_all(db: Session):
+        """Get all change requests. ADMIN only."""
+        return ChangeRequestRepository.get_all(db)
+    
+    @staticmethod
+    def get_by_staff(db: Session, staff_id: int):
+        """Get all change requests for a specific staff member."""
+        return ChangeRequestRepository.get_by_staff_id(db, staff_id)
+    
+    @staticmethod
     def create_request(db: Session, data):
         """
         Create a new change request.

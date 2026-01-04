@@ -115,3 +115,34 @@ class ChangeRequestRepository:
         # Query all change request records from database
         # This executes: SELECT * FROM change_requests
         return db.query(ChangeRequest).all()
+    
+    @staticmethod
+    def get_by_staff_id(db: Session, staff_id: int):
+        """
+        Retrieve all change requests for a specific staff member.
+        
+        WHAT THIS DOES: Fetches change request records filtered by staff ID.
+        
+        DATABASE OPERATION:
+        - SELECT * FROM change_requests WHERE requested_by_staff_id = ?
+        
+        RETRIEVES: List of ChangeRequest objects for the specified staff member
+        
+        WHY: Used to display staff's own change requests
+        
+        USE CASES:
+        - Staff view of their own change requests
+        - Filter requests by staff member
+        
+        Args:
+            db: Database session
+            staff_id: ID of staff member to get requests for
+        
+        Returns:
+            List of ChangeRequest objects for the specified staff member
+        """
+        # Query change requests by staff ID
+        # This executes: SELECT * FROM change_requests WHERE requested_by_staff_id = ?
+        return db.query(ChangeRequest).filter(
+            ChangeRequest.requested_by_staff_id == staff_id
+        ).all()

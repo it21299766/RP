@@ -4,24 +4,47 @@ import './Sidebar.css';
 const Sidebar = ({ onNavigate, currentPage, userRole, onRoleChange, isAuthenticated, registrationNumber, onLogout }) => {
   const selectedNav = currentPage || 'dashboard';
 
-  const navItems = [
-    { id: 'allocations', label: 'Allocations', icon: '📄' },
-    { id: 'course-management', label: 'Course Management', icon: '📚' },
-    { id: 'task-management', label: 'Task Management', icon: '✅' },
-    { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
-    { id: 'my-workload', label: 'My Workload', icon: '👤' },
-    { id: 'reports', label: 'Reports', icon: '📊' },
-    { id: 'staff-management', label: 'Staff Management', icon: '👥' }
-  ];
+  // Menu items based on role
+  const getNavItems = () => {
+    if (userRole === 'Staff') {
+      return [
+        { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
+        { id: 'my-profile', label: 'My Profile', icon: '👤' },
+        { id: 'my-workload', label: 'My Workload', icon: '📋' },
+        { id: 'change-request', label: 'Change Request', icon: '📝' }
+      ];
+    } else {
+      return [
+        { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
+        { id: 'staff-management', label: 'Staff Management', icon: '👔' },
+        { id: 'course-management', label: 'Course Management', icon: '📚' },
+        { id: 'task-management', label: 'Task Management', icon: '✅' },
+        { id: 'allocations', label: 'Allocations', icon: '📄' },
+        { id: 'reports', label: 'Reports', icon: '📊' }
+      ];
+    }
+  };
 
-  const radioNavItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
-    { id: 'staff-management', label: 'Staff Management', icon: '👥' },
-    { id: 'course-management', label: 'Course Management', icon: '📚' },
-    { id: 'task-management', label: 'Task Management', icon: '✅' },
-    { id: 'allocations', label: 'Allocations', icon: '📄' },
-    { id: 'reports', label: 'Reports', icon: '📊' }
+  const navItems = getNavItems();
+
+  const allRadioNavItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: '🏠', adminOnly: false },
+    { id: 'staff-management', label: 'Staff Management', icon: '👔', adminOnly: true },
+    { id: 'course-management', label: 'Course Management', icon: '📚', adminOnly: true },
+    { id: 'task-management', label: 'Task Management', icon: '✅', adminOnly: true },
+    { id: 'allocations', label: 'Allocations', icon: '📄', adminOnly: true },
+    { id: 'reports', label: 'Reports', icon: '📊', adminOnly: false },
+    { id: 'my-profile', label: 'My Profile', icon: '👤', staffOnly: true },
+    { id: 'my-workload', label: 'My Workload', icon: '📋', staffOnly: true },
+    { id: 'change-request', label: 'Change Request', icon: '📝', staffOnly: true }
   ];
+  
+  const radioNavItems = allRadioNavItems.filter(item => {
+    if (item.adminOnly && userRole !== 'Administrator') return false;
+    if (item.staffOnly && userRole !== 'Staff') return false;
+    if (!item.adminOnly && !item.staffOnly) return true; // Available for all
+    return true;
+  });
 
   return (
     <div className="sidebar">

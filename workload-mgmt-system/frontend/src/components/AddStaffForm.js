@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './AddStaffForm.css';
 import PopupMessage from './PopupMessage';
+import { staffApi } from '../api/staffApi';
 
 const AddStaffForm = ({ onStaffAdded, onStaffUpdated, editingStaff }) => {
   const [formData, setFormData] = useState({
@@ -15,7 +16,8 @@ const AddStaffForm = ({ onStaffAdded, onStaffUpdated, editingStaff }) => {
     available: true,
     password: '',
     max_hours: 20.0,
-    profilePicture: '' // Frontend-only field
+    profilePictureFile: null, // File object for upload
+    profilePicturePreview: '' // Preview URL (for display only)
   });
 
   const [skillsInput, setSkillsInput] = useState(''); // For comma-separated input
@@ -42,7 +44,8 @@ const AddStaffForm = ({ onStaffAdded, onStaffUpdated, editingStaff }) => {
         available: editingStaff.available !== undefined ? editingStaff.available : true,
         password: '', // Don't pre-fill password
         max_hours: editingStaff.max_hours || 20.0,
-        profilePicture: editingStaff.profilePicture || ''
+        profilePictureFile: null, // No file selected initially
+        profilePicturePreview: editingStaff.profilePicture || '' // Show existing picture if available
       });
       setSkillsInput(skillsArray.join(', '));
     } else {
@@ -80,29 +83,34 @@ const AddStaffForm = ({ onStaffAdded, onStaffUpdated, editingStaff }) => {
       available: true,
       password: '',
       max_hours: 20.0,
-      profilePicture: ''
+      profilePictureFile: null,
+      profilePicturePreview: ''
     });
     setSkillsInput('');
     setError(null);
   };
 
-  // Handle profile picture upload (frontend-only)
+  // Handle profile picture file selection
   const handleProfilePictureChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Validate file type
       if (!file.type.startsWith('image/')) {
         setError('Please select a valid image file.');
         return;
       }
+      // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         setError('Image size should be less than 5MB.');
         return;
       }
+      // Store file object and create preview
       const reader = new FileReader();
       reader.onloadend = () => {
         setFormData(prev => ({
           ...prev,
-          profilePicture: reader.result
+          profilePictureFile: file, // Store File object for upload
+          profilePicturePreview: reader.result // Preview URL for display
         }));
       };
       reader.readAsDataURL(file);
@@ -148,17 +156,83 @@ const AddStaffForm = ({ onStaffAdded, onStaffUpdated, editingStaff }) => {
 
     if (editingStaff) {
       // Update existing staff
-      if (onStaffUpdated) {
-        onStaffUpdated(submitData);
-      }
+      const updateStaff = async () => {
+        try {
+          const staffId = editingStaff.staff_id || editingStaff.id;
+          if (!staffId) {
+            setError('Staff ID not found');
+            setIsSubmitting(false);
+            return;
+          }
+          
+          // If only profile picture is being changed, just upload the picture
+          const hasOnlyProfilePictureChange = formData.profilePictureFile && 
+            Object.keys(submitData).every(key => {
+              const currentValue = submitData[key];
+              const originalValue = editingStaff[key] || editingStaff[key === 'experience_years' ? 'experience_years' : key];
+              
+              // Handle arrays (skills)
+              if (Array.isArray(currentValue) && Array.isArray(originalValue)) {
+                return JSON.stringify(currentValue.sort()) === JSON.stringify(originalValue.sort());
+              }
+              
+              return currentValue === originalValue;
+            });
+          
+          if (hasOnlyProfilePictureChange) {
+            // Only profile picture changed - just upload it
+            try {
+              await staffApi.uploadProfilePicture(staffId, formData.profilePictureFile);
+              setPopup({ show: true, message: 'Profile picture updated successfully', type: 'success' });
+              if (onStaffUpdated) {
+                // Reload staff data to show updated picture
+                const updatedStaff = await staffApi.getById(staffId);
+                onStaffUpdated(updatedStaff);
+              }
+              setIsSubmitting(false);
+              return;
+            } catch (uploadErr) {
+              console.error('Error uploading profile picture:', uploadErr);
+              setError(`Profile picture upload failed: ${uploadErr.message || 'Unknown error'}`);
+              setIsSubmitting(false);
+              return;
+            }
+          }
+          
+          // Update staff data first
+          await onStaffUpdated(submitData);
+          
+          // Upload profile picture if file was selected
+          if (formData.profilePictureFile) {
+            try {
+              await staffApi.uploadProfilePicture(staffId, formData.profilePictureFile);
+              // Reload staff data to show updated picture
+              const updatedStaff = await staffApi.getById(staffId);
+              if (onStaffUpdated) {
+                onStaffUpdated(updatedStaff);
+              }
+            } catch (uploadErr) {
+              console.error('Error uploading profile picture:', uploadErr);
+              setError(`Profile picture upload failed: ${uploadErr.message || 'Unknown error'}`);
+              setIsSubmitting(false);
+              return;
+            }
+          }
+        } catch (err) {
+          console.error('Error updating staff:', err);
+          setError(`Error updating staff: ${err.message || 'Unknown error'}`);
+          setIsSubmitting(false);
+        }
+      };
+      
+      updateStaff();
     } else {
       // Add new staff
+      setIsSubmitting(false);
       if (onStaffAdded) {
         onStaffAdded(submitData);
       }
     }
-    
-    setIsSubmitting(false);
   };
 
   const handleCancel = () => {
@@ -418,37 +492,44 @@ const AddStaffForm = ({ onStaffAdded, onStaffUpdated, editingStaff }) => {
                 </div>
               )}
 
-              <div className="form-group">
-                <label htmlFor="profilePicture">
-                  Profile Picture (Frontend Only)
-                </label>
-                <div className="profile-picture-upload">
-                  {formData.profilePicture ? (
-                    <div className="profile-picture-preview">
-                      <img src={formData.profilePicture} alt="Profile preview" className="profile-preview-img" />
-                    </div>
-                  ) : (
-                    <div className="profile-picture-placeholder">
-                      <span className="placeholder-icon">👤</span>
-                      <span className="placeholder-text">No picture</span>
-                    </div>
-                  )}
-                  <input
-                    type="file"
-                    id="profilePicture"
-                    accept="image/*"
-                    onChange={handleProfilePictureChange}
-                    className="file-input"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => document.getElementById('profilePicture').click()}
-                    className="upload-button"
-                  >
-                    {formData.profilePicture ? 'Change Picture' : 'Upload from Device'}
-                  </button>
+              {editingStaff && (
+                <div className="form-group">
+                  <label htmlFor="profilePicture">
+                    Profile Picture
+                  </label>
+                  <div className="profile-picture-upload">
+                    {formData.profilePicturePreview ? (
+                      <div className="profile-picture-preview">
+                        <img src={formData.profilePicturePreview} alt="Profile preview" className="profile-preview-img" />
+                      </div>
+                    ) : (
+                      <div className="profile-picture-placeholder">
+                        <span className="placeholder-icon">👤</span>
+                        <span className="placeholder-text">No picture</span>
+                      </div>
+                    )}
+                    <input
+                      type="file"
+                      id="profilePicture"
+                      accept="image/*"
+                      onChange={handleProfilePictureChange}
+                      className="file-input"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('profilePicture').click()}
+                      className="upload-button"
+                    >
+                      {formData.profilePicturePreview ? 'Change Picture' : 'Upload Picture'}
+                    </button>
+                    {formData.profilePictureFile && (
+                      <small className="form-hint" style={{ display: 'block', marginTop: '0.5rem', color: '#28a745' }}>
+                        Picture will be uploaded when you save changes
+                      </small>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 

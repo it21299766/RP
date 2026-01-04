@@ -118,6 +118,38 @@ class AssignmentRepository:
         ).first()
 
     @staticmethod
+    def get_by_staff_id(db: Session, staff_id: int):
+        """
+        Retrieve all assignments for a specific staff member.
+        
+        WHAT THIS DOES: Fetches all assignment records for a given staff member.
+        
+        DATABASE OPERATION:
+        - SELECT * FROM assignments WHERE staff_id = ?
+        
+        RETRIEVES: List of Assignment objects for the specified staff_id
+        
+        WHY: Used to get all assignments for a staff member (for workload calculation, deletion)
+        
+        USE CASES:
+        - Get all assignments for a staff member (workload calculation)
+        - Delete all assignments for a staff member (before deleting staff)
+        - Staff workload reports
+        
+        Args:
+            db: Database session
+            staff_id: Staff ID to get assignments for
+        
+        Returns:
+            List of Assignment objects for the specified staff_id
+        """
+        # Query assignments by staff_id
+        # This executes: SELECT * FROM assignments WHERE staff_id = ?
+        return db.query(Assignment).filter(
+            Assignment.staff_id == staff_id
+        ).all()
+
+    @staticmethod
     def delete(db: Session, assignment: Assignment):
         """
         Delete an assignment from the database.
@@ -149,3 +181,45 @@ class AssignmentRepository:
         # Execute DELETE and commit transaction
         # This executes: DELETE FROM assignments WHERE assignment_id = ?
         db.commit()
+    
+    @staticmethod
+    def delete_by_staff_id(db: Session, staff_id: int):
+        """
+        Delete all assignments for a specific staff member.
+        
+        WHAT THIS DOES: Removes all assignment records for a given staff member.
+        
+        DATABASE OPERATION:
+        - DELETE FROM assignments WHERE staff_id = ?
+        - Commits the transaction
+        
+        RETRIEVES: Number of assignments deleted (integer)
+        
+        WHY: Used to unassign all tasks from a staff member before deleting the staff record.
+        This prevents foreign key constraint violations.
+        
+        USE CASES:
+        - Unassign all tasks before deleting staff member
+        - Bulk unassignment operations
+        
+        Args:
+            db: Database session
+            staff_id: Staff ID to delete all assignments for
+        
+        Returns:
+            Number of assignments deleted (integer)
+        """
+        # Query all assignments for this staff member
+        assignments = AssignmentRepository.get_by_staff_id(db, staff_id)
+        
+        # Delete each assignment
+        count = 0
+        for assignment in assignments:
+            db.delete(assignment)
+            count += 1
+        
+        # Commit all deletions
+        if count > 0:
+            db.commit()
+        
+        return count

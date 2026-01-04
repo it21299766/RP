@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import './StaffManagement.css';
 import AddStaffForm from './AddStaffForm';
 import PopupMessage from './PopupMessage';
 import { staffApi } from '../api/staffApi';
+import { AuthContext } from '../context/AuthContext';
 
 const StaffManagement = ({ userRole = 'Administrator', currentUserEmail = '' }) => {
+  const { user: currentUser } = useContext(AuthContext);
   const [activeTab, setActiveTab] = useState('view-staff');
   const [selectedDepartment, setSelectedDepartment] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -17,93 +19,79 @@ const StaffManagement = ({ userRole = 'Administrator', currentUserEmail = '' }) 
   const isAdministrator = userRole === 'Administrator';
   const isStaff = userRole === 'Staff';
   
-  // Find current user's profile
-  const currentUserProfile = staffMembers.find(staff => 
-    currentUserEmail && staff.email.toLowerCase() === currentUserEmail.toLowerCase()
-  ) || (isStaff && staffMembers.length > 0 ? staffMembers[0] : null);
+  // Find current user's profile by staff_id (most reliable)
+  const currentUserProfile = currentUser && currentUser.staff_id
+    ? staffMembers.find(staff => (staff.staff_id || staff.id) === currentUser.staff_id)
+    : null;
   
   // Check if selected staff is the current user's profile
-  const isOwnProfile = isStaff && selectedStaff && currentUserProfile && 
-    selectedStaff.id === currentUserProfile.id;
+  const isOwnProfile = selectedStaff && currentUserProfile && 
+    (selectedStaff.staff_id || selectedStaff.id) === (currentUserProfile.staff_id || currentUserProfile.id);
 
-  /**
-   * Load staff data from backend API
-   * This function is reusable and can be called after updates to refresh data
-   */
-  const loadStaffData = async () => {
-    try {
-      const data = await staffApi.getAll();
-      if (Array.isArray(data)) {
-        // Map backend response to frontend format
-        const mappedData = data.map(staff => ({
-          ...staff,
-          id: staff.staff_id, // Use staff_id as id for compatibility
-          staff_id: staff.staff_id, // Ensure both id and staff_id are set
-          position: staff.designation, // Map designation to position for display
-          email: `${staff.name.toLowerCase().replace(/\s+/g, '.')}@university.edu`, // Generate email if not present
-          // Calculate hours for display (if not present)
-          teachingHours: staff.teachingHours || 0,
-          researchHours: staff.researchHours || 0,
-          totalHours: staff.totalHours || (staff.max_hours || 0)
-        }));
-        setStaffMembers(mappedData);
-        setFilteredStaff(mappedData);
-        try { 
-          localStorage.setItem('staffMembers', JSON.stringify(mappedData)); 
-        } catch (e) {
-          console.warn('Failed to save to localStorage:', e);
-        }
-        return mappedData;
-      }
-    } catch (err) {
-      console.error('Error loading staff:', err);
-      setPopup({
-        show: true,
-        message: `Error loading staff: ${err.message || 'Unknown error'}`,
-        type: 'error'
-      });
-      // Fallback to localStorage if available
-      const savedStaff = localStorage.getItem('staffMembers');
-      if (savedStaff) {
-        try {
-          const parsedStaff = JSON.parse(savedStaff);
-          setStaffMembers(parsedStaff);
-          setFilteredStaff(parsedStaff);
-          return parsedStaff;
-        } catch (e) {
-          console.error('Failed to parse localStorage data:', e);
-        }
-      }
-      return [];
-    }
-  };
-
-  // Load staff data on component mount
+  // Load staff data from backend API
   useEffect(() => {
     let mounted = true;
 
-    const fetchData = async () => {
-      const data = await loadStaffData();
-      if (!mounted) return;
+    const loadStaffData = async () => {
+      try {
+        const data = await staffApi.getAll();
+        if (mounted && Array.isArray(data)) {
+          // Map backend response to frontend format
+          const mappedData = data.map(staff => ({
+            ...staff,
+            id: staff.staff_id, // Use staff_id as id for compatibility
+            position: staff.designation, // Map designation to position for display
+            email: `${staff.name.toLowerCase().replace(/\s+/g, '.')}@university.edu`, // Generate email if not present
+          // Calculate hours for display (if not present)
+          teachingHours: staff.teachingHours || 0,
+          researchHours: staff.researchHours || 0,
+          totalHours: staff.totalHours || (staff.max_hours || 0),
+          // Map profile picture path to URL
+          profilePicture: staff.profile_picture_path 
+            ? `http://localhost:8000/uploads/${staff.profile_picture_path}`
+            : null
+        }));
+          setStaffMembers(mappedData);
+          setFilteredStaff(mappedData);
+          try { localStorage.setItem('staffMembers', JSON.stringify(mappedData)); } catch (e) {}
+        }
+      } catch (err) {
+        console.error('Error loading staff:', err);
+        setPopup({
+          show: true,
+          message: `Error loading staff: ${err.message || 'Unknown error'}`,
+          type: 'error'
+        });
+        // Fallback to localStorage if available
+        const savedStaff = localStorage.getItem('staffMembers');
+        if (savedStaff && mounted) {
+          try {
+            const parsedStaff = JSON.parse(savedStaff);
+            setStaffMembers(parsedStaff);
+            setFilteredStaff(parsedStaff);
+          } catch (e) {
+            // Ignore parse errors
+          }
+        }
+      }
     };
 
-    fetchData();
+    loadStaffData();
     return () => { mounted = false; };
   }, []);
 
-  // Auto-load staff profile when role is Staff (only set selectedStaff, don't force tab change)
+  // Auto-load current user's profile when staff data is loaded
   useEffect(() => {
-    if (isStaff && staffMembers.length > 0 && !selectedStaff) {
-      // Find current user's profile
-      const userProfile = currentUserEmail 
-        ? staffMembers.find(staff => staff.email.toLowerCase() === currentUserEmail.toLowerCase())
-        : null;
-      
-      const profileToShow = userProfile || staffMembers[0];
-      setSelectedStaff(profileToShow);
+    if (currentUser && currentUser.staff_id && staffMembers.length > 0) {
+      // Find current user's profile by staff_id
+      const userProfile = staffMembers.find(staff => (staff.staff_id || staff.id) === currentUser.staff_id);
+      if (userProfile && (!selectedStaff || (selectedStaff.staff_id || selectedStaff.id) !== currentUser.staff_id)) {
+        // Only update if we don't already have the correct profile selected
+        setSelectedStaff(userProfile);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isStaff, currentUserEmail, staffMembers.length]);
+  }, [currentUser, staffMembers.length]);
 
   useEffect(() => {
     // Filter staff based on department and search query
@@ -146,7 +134,10 @@ const StaffManagement = ({ userRole = 'Administrator', currentUserEmail = '' }) 
           ...created,
           id: created.staff_id,
           position: created.designation,
-          email: `${created.name.toLowerCase().replace(/\s+/g, '.')}@university.edu`
+          email: `${created.name.toLowerCase().replace(/\s+/g, '.')}@university.edu`,
+          profilePicture: created.profile_picture_path 
+            ? `http://localhost:8000/uploads/${created.profile_picture_path}`
+            : null
         };
         const updatedStaff = [...staffMembers, mappedStaff];
         setStaffMembers(updatedStaff);
@@ -167,10 +158,7 @@ const StaffManagement = ({ userRole = 'Administrator', currentUserEmail = '' }) 
 
   // Handle staff updated (Update)
   const handleStaffUpdated = async (updatedStaff) => {
-    // Get staff_id from editingStaff (handle both id and staff_id)
-    const staffId = editingStaff?.staff_id || editingStaff?.id;
-    
-    if (!editingStaff || !staffId) {
+    if (!editingStaff || !editingStaff.staff_id) {
       setPopup({
         show: true,
         message: 'Cannot update: Staff ID not found',
@@ -180,54 +168,26 @@ const StaffManagement = ({ userRole = 'Administrator', currentUserEmail = '' }) 
     }
 
     try {
-      // Update staff in backend database (this persists to database)
-      const saved = await staffApi.update(staffId, updatedStaff);
-      
-      // Reload all staff data from backend to ensure we have the latest data
-      // This ensures consistency between frontend and backend
-      const refreshedStaffList = await loadStaffData();
-      
-      // Find the updated staff in the refreshed list
-      const updatedStaffInList = refreshedStaffList.find(staff => 
-        (staff.staff_id || staff.id) === saved.staff_id
-      );
-      
-      // Map backend response to frontend format (preserve frontend-only fields)
-      const mappedStaff = updatedStaffInList ? {
-        ...updatedStaffInList,
-        id: updatedStaffInList.staff_id,
-        staff_id: updatedStaffInList.staff_id,
-        position: updatedStaffInList.designation,
-        email: updatedStaffInList.email || `${updatedStaffInList.name.toLowerCase().replace(/\s+/g, '.')}@university.edu`,
-        // Preserve profile picture if it exists (frontend-only field)
-        profilePicture: editingStaff.profilePicture || updatedStaffInList.profilePicture || ''
-      } : {
+      const saved = await staffApi.update(editingStaff.staff_id, updatedStaff);
+      // Map backend response
+      const mappedStaff = {
         ...saved,
         id: saved.staff_id,
-        staff_id: saved.staff_id,
         position: saved.designation,
         email: saved.email || `${saved.name.toLowerCase().replace(/\s+/g, '.')}@university.edu`,
-        profilePicture: editingStaff.profilePicture || saved.profilePicture || ''
+        profilePicture: saved.profile_picture_path 
+          ? `http://localhost:8000/uploads/${saved.profile_picture_path}`
+          : null
       };
-      
-      // Update selectedStaff if it's the same staff member being edited
-      if (selectedStaff) {
-        const selectedId = selectedStaff.staff_id || selectedStaff.id;
-        if (selectedId === saved.staff_id) {
-          setSelectedStaff(mappedStaff);
-        }
-      }
-      
-      // Clear editing state and switch to view tab
+      const updatedList = staffMembers.map(staff => 
+        staff.staff_id === saved.staff_id ? mappedStaff : staff
+      );
+      setStaffMembers(updatedList);
+      setFilteredStaff(updatedList);
+      try { saveStaffToStorage(updatedList); } catch (e) {}
       setEditingStaff(null);
       setActiveTab('view-staff');
-      
-      // Show success message
-      setPopup({ 
-        show: true, 
-        message: 'Staff record updated successfully! Changes are saved to database.', 
-        type: 'success' 
-      });
+      setPopup({ show: true, message: 'Staff record updated', type: 'success' });
     } catch (err) {
       console.error('Error updating staff:', err);
       setPopup({
@@ -301,73 +261,6 @@ const StaffManagement = ({ userRole = 'Administrator', currentUserEmail = '' }) 
     setActiveTab('staff-details');
   };
 
-  // Handle profile picture upload in details section
-  const handleProfilePictureUpload = (e) => {
-    const file = e.target.files[0];
-    if (file && selectedStaff) {
-      // Check if staff user is trying to upload their own profile picture
-      if (isStaff && currentUserProfile && selectedStaff.id !== currentUserProfile.id) {
-        setPopup({
-          show: true,
-          message: 'You can only upload your own profile picture.',
-          type: 'error'
-        });
-        return;
-      }
-      
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        setPopup({
-          show: true,
-          message: 'Please select a valid image file.',
-          type: 'error'
-        });
-        return;
-      }
-      
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        setPopup({
-          show: true,
-          message: 'Image size should be less than 5MB.',
-          type: 'error'
-        });
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        // Update the selected staff's profile picture
-        const updatedStaff = {
-          ...selectedStaff,
-          profilePicture: reader.result
-        };
-        
-        // Update in staff members array
-        const updatedList = staffMembers.map(staff => 
-          staff.id === selectedStaff.id ? updatedStaff : staff
-        );
-        
-        setStaffMembers(updatedList);
-        setFilteredStaff(updatedList);
-        saveStaffToStorage(updatedList);
-        setSelectedStaff(updatedStaff);
-        
-        // Update currentUserProfile if it's the current user
-        if (isStaff && selectedStaff === currentUserProfile) {
-          // currentUserProfile will be updated via useEffect
-        }
-        
-        // Show success popup
-        setPopup({
-          show: true,
-          message: 'Profile picture updated successfully!',
-          type: 'success'
-        });
-      };
-      reader.readAsDataURL(file);
-    }
-  };
 
   return (
     <div className="staff-management">
@@ -395,7 +288,16 @@ const StaffManagement = ({ userRole = 'Administrator', currentUserEmail = '' }) 
         )}
         <button
           className={`tab-button ${activeTab === 'staff-details' ? 'active' : ''}`}
-          onClick={() => setActiveTab('staff-details')}
+          onClick={() => {
+            // When clicking "My Profile" or "Staff Details", ensure current user's profile is shown
+            if (currentUser && currentUser.staff_id && staffMembers.length > 0) {
+              const userProfile = staffMembers.find(staff => (staff.staff_id || staff.id) === currentUser.staff_id);
+              if (userProfile) {
+                setSelectedStaff(userProfile);
+              }
+            }
+            setActiveTab('staff-details');
+          }}
         >
           {isStaff ? 'My Profile' : 'Staff Details'}
         </button>
@@ -534,24 +436,6 @@ const StaffManagement = ({ userRole = 'Administrator', currentUserEmail = '' }) 
                     </div>
                   )}
                   <h3 className="detail-card-title">{selectedStaff.name}</h3>
-                  {(isAdministrator || isOwnProfile) && (
-                    <div className="profile-upload-section">
-                      <input
-                        type="file"
-                        id="profilePictureUpload"
-                        accept="image/*"
-                        onChange={handleProfilePictureUpload}
-                        className="file-input-hidden"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => document.getElementById('profilePictureUpload').click()}
-                        className="upload-profile-button"
-                      >
-                        Upload Profile Pic
-                      </button>
-                    </div>
-                  )}
                 </div>
                 <div className="detail-card-content">
                   <div className="detail-item">

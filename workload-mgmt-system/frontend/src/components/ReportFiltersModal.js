@@ -94,8 +94,10 @@ const ReportFiltersModal = ({ reportId, initialFilters, onGenerate, onClose }) =
                 required
               >
                 <option value="">Select Semester</option>
-                <option value="Semester 1">Semester 1</option>
-                <option value="Semester 2">Semester 2</option>
+                <option value="2025S1">2025 Semester 1</option>
+                <option value="2025S2">2025 Semester 2</option>
+                <option value="2024S1">2024 Semester 1</option>
+                <option value="2024S2">2024 Semester 2</option>
               </select>
             </div>
 

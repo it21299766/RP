@@ -15,12 +15,16 @@ WHY SERVICE LAYER?
 """
 
 from sqlalchemy.orm import Session
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, UploadFile
 from app.models.staff import Staff
-from app.schemas.staff import StaffCreate, StaffUpdate
+from app.schemas.staff import StaffCreate, StaffUpdate, PasswordUpdate
 from app.repositories.staff_repository import StaffRepository
-from app.utils.security import hash_password
+from app.utils.security import hash_password, verify_password
 from app.utils.username_generator import generate_username
+import os
+import shutil
+import uuid
+from pathlib import Path
 
 
 class StaffService:
@@ -199,20 +203,31 @@ class StaffService:
         # STEP 2: Update only provided fields (partial update)
         # exclude_unset=True means only update fields that were actually provided
         # Example: If only designation provided, only update designation
-        for key, value in data.dict(exclude_unset=True).items():
+        # Pydantic v1 uses .dict(), v2 uses .model_dump()
+        # Check which version by trying v1 first (compatible with codebase)
+        try:
+            update_data = data.dict(exclude_unset=True)
+        except AttributeError:
+            # Pydantic v2
+            update_data = data.model_dump(exclude_unset=True)
+        
+        for key, value in update_data.items():
             setattr(staff, key, value)  # staff.designation = value, etc.
         
         # STEP 3: Save changes to database
         return StaffRepository.update(db, staff)
 
     @staticmethod
-    def delete_staff(db: Session, staff_id: int):
+    def delete_staff(db: Session, staff_id: int, unassign_tasks: bool = True):
         """
         Delete a staff member.
         
         BUSINESS LOGIC:
         1. Get staff (validates existence - raises 404 if not found)
-        2. Delete from database
+        2. Check if staff has assignments (if unassign_tasks=False, raise error)
+        3. If unassign_tasks=True, delete all assignments for this staff
+        4. Delete profile picture if exists
+        5. Delete staff from database
         
         USE CASE: Remove staff member (permanent deletion)
         
@@ -221,20 +236,282 @@ class StaffService:
         
         ERROR HANDLING:
         - Raises 404 if staff not found (via get_staff())
-        - May fail if staff has related records (foreign key constraints)
+        - Raises 400 if staff has assignments and unassign_tasks=False
         
         Args:
             db: Database session
             staff_id: ID of staff to delete
+            unassign_tasks: If True, automatically unassign all tasks before deletion.
+                          If False, raise error if staff has assignments.
         
         Returns:
-            None (void operation)
+            Dictionary with deletion result:
+            {
+                "deleted": True,
+                "unassigned_assignments": <number of assignments deleted>
+            }
+        
+        Raises:
+            HTTPException: 404 if staff not found
+            HTTPException: 400 if staff has assignments and unassign_tasks=False
+        """
+        from app.repositories.assignment_repository import AssignmentRepository
+        
+        # STEP 1: Get staff (validates existence)
+        staff = StaffService.get_staff(db, staff_id)
+        
+        # STEP 2: Check if staff has assignments
+        assignments = AssignmentRepository.get_by_staff_id(db, staff_id)
+        assignment_count = len(assignments)
+        
+        if assignment_count > 0:
+            if not unassign_tasks:
+                # Cannot delete staff with assignments
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Cannot delete staff member. They have {assignment_count} active assignment(s). "
+                           "Please unassign all tasks first, or use unassign_tasks=true parameter."
+                )
+            
+            # STEP 3: Unassign all tasks (delete all assignments)
+            AssignmentRepository.delete_by_staff_id(db, staff_id)
+        
+        # STEP 4: Delete profile picture if exists
+        if staff.profile_picture_path:
+            StaffService._delete_profile_picture_file(staff.profile_picture_path)
+        
+        # STEP 5: Delete staff from database
+        StaffRepository.delete(db, staff)
+        
+        return {
+            "deleted": True,
+            "unassigned_assignments": assignment_count
+        }
+    
+    @staticmethod
+    def update_password(db: Session, staff_id: int, data: PasswordUpdate):
+        """
+        Update staff password.
+        
+        BUSINESS LOGIC:
+        1. Get staff (validates existence - raises 404 if not found)
+        2. Verify current password matches
+        3. Hash new password
+        4. Update password_hash in database
+        
+        SECURITY:
+        - Current password must be provided and verified
+        - New password is hashed before storing (never store plain text!)
+        - Prevents unauthorized password changes
+        
+        USE CASE: Allow staff to change their password
+        
+        ERROR HANDLING:
+        - Raises 404 if staff not found
+        - Raises 400 if current password is incorrect
+        - Raises 400 if new password is empty
+        
+        Args:
+            db: Database session
+            staff_id: ID of staff to update password for
+            data: PasswordUpdate schema with current_password and new_password
+        
+        Returns:
+            Updated Staff object
+        
+        Raises:
+            HTTPException: 404 if staff not found
+            HTTPException: 400 if current password incorrect or new password empty
+        """
+        # STEP 1: Get staff (validates existence)
+        staff = StaffService.get_staff(db, staff_id)
+        
+        # STEP 2: Verify current password
+        if not staff.password_hash:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No password set for this account"
+            )
+        
+        if not verify_password(data.current_password, staff.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect"
+            )
+        
+        # STEP 3: Validate new password
+        if not data.new_password or len(data.new_password.strip()) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="New password cannot be empty"
+            )
+        
+        # STEP 4: Hash new password and update
+        staff.password_hash = hash_password(data.new_password)
+        
+        # STEP 5: Save changes to database
+        return StaffRepository.update(db, staff)
+    
+    @staticmethod
+    def upload_profile_picture(db: Session, staff_id: int, file: UploadFile):
+        """
+        Upload profile picture for staff member.
+        
+        BUSINESS LOGIC:
+        1. Get staff (validates existence - raises 404 if not found)
+        2. Validate file type (images only)
+        3. Generate unique filename
+        4. Save file to uploads/profiles/ directory
+        5. Delete old picture if exists
+        6. Update profile_picture_path in database
+        
+        FILE STORAGE:
+        - Files stored in: backend/uploads/profiles/
+        - Filename format: staff_{staff_id}_{uuid}.{extension}
+        - Example: staff_7_a1b2c3d4.jpg
+        
+        VALIDATION:
+        - Only image files allowed (jpg, jpeg, png, gif)
+        - File size limit: 5MB (configurable)
+        
+        USE CASE: Upload or update staff profile picture
+        
+        ERROR HANDLING:
+        - Raises 404 if staff not found
+        - Raises 400 if file type not supported
+        - Raises 400 if file too large
+        
+        Args:
+            db: Database session
+            staff_id: ID of staff to upload picture for
+            file: UploadFile object from FastAPI
+        
+        Returns:
+            Updated Staff object with profile_picture_path
+        
+        Raises:
+            HTTPException: 404 if staff not found
+            HTTPException: 400 if file validation fails
+        """
+        # STEP 1: Get staff (validates existence)
+        staff = StaffService.get_staff(db, staff_id)
+        
+        # STEP 2: Validate file type
+        allowed_extensions = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+        file_extension = Path(file.filename).suffix.lower() if file.filename else ""
+        
+        if file_extension not in allowed_extensions:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid file type. Allowed: {', '.join(allowed_extensions)}"
+            )
+        
+        # STEP 3: Validate file size (5MB limit)
+        file_content = file.file.read()
+        file.file.seek(0)  # Reset file pointer
+        
+        max_size = 5 * 1024 * 1024  # 5MB in bytes
+        if len(file_content) > max_size:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="File too large. Maximum size: 5MB"
+            )
+        
+        # STEP 4: Create uploads directory if it doesn't exist
+        # Determine the correct upload directory path
+        # __file__ is backend/app/services/staff_service.py, so parent.parent.parent gets backend/
+        base_dir = Path(__file__).parent.parent.parent  # Go up from app/services/ to backend/
+        upload_dir = base_dir / "uploads" / "profiles"
+        
+        # Create directory structure if it doesn't exist
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        
+        # STEP 5: Generate unique filename
+        unique_id = str(uuid.uuid4())[:8]  # Short unique ID
+        filename = f"staff_{staff_id}_{unique_id}{file_extension}"
+        file_path = upload_dir / filename
+        
+        # STEP 6: Delete old picture if exists
+        if staff.profile_picture_path:
+            StaffService._delete_profile_picture_file(staff.profile_picture_path)
+        
+        # STEP 7: Save new file
+        try:
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to save file: {str(e)}"
+            )
+        
+        # STEP 8: Update database with relative path (from uploads directory)
+        # Path stored in DB: "profiles/staff_X_uuid.jpg"
+        # Full path: uploads/profiles/staff_X_uuid.jpg (accessible via /uploads/profiles/...)
+        relative_path = f"profiles/{filename}"
+        staff.profile_picture_path = relative_path
+        
+        # STEP 9: Save changes to database
+        return StaffRepository.update(db, staff)
+    
+    @staticmethod
+    def delete_profile_picture(db: Session, staff_id: int):
+        """
+        Delete profile picture for staff member.
+        
+        BUSINESS LOGIC:
+        1. Get staff (validates existence - raises 404 if not found)
+        2. Delete picture file from filesystem
+        3. Clear profile_picture_path in database
+        
+        USE CASE: Remove profile picture
+        
+        ERROR HANDLING:
+        - Raises 404 if staff not found
+        - No error if picture doesn't exist (idempotent)
+        
+        Args:
+            db: Database session
+            staff_id: ID of staff to delete picture for
+        
+        Returns:
+            Updated Staff object with profile_picture_path = None
         
         Raises:
             HTTPException: 404 if staff not found
         """
-        # Get staff (validates existence)
+        # STEP 1: Get staff (validates existence)
         staff = StaffService.get_staff(db, staff_id)
         
-        # Delete from database
-        StaffRepository.delete(db, staff)
+        # STEP 2: Delete file if exists
+        if staff.profile_picture_path:
+            StaffService._delete_profile_picture_file(staff.profile_picture_path)
+            staff.profile_picture_path = None
+            
+            # STEP 3: Save changes to database
+            return StaffRepository.update(db, staff)
+        
+        # No picture to delete - return staff as-is
+        return staff
+    
+    @staticmethod
+    def _delete_profile_picture_file(relative_path: str):
+        """
+        Helper method to delete profile picture file from filesystem.
+        
+        WHAT THIS DOES: Deletes the physical file from the uploads directory.
+        
+        Args:
+            relative_path: Relative path to file (e.g., "profiles/staff_7.jpg")
+        """
+        try:
+            # Determine the correct upload directory path (same logic as upload_profile_picture)
+            # __file__ is backend/app/services/staff_service.py, so parent.parent.parent gets backend/
+            base_dir = Path(__file__).parent.parent.parent  # Go up from app/services/ to backend/
+            file_path = base_dir / "uploads" / relative_path
+            
+            if file_path.exists():
+                file_path.unlink()  # Delete file
+        except Exception:
+            # Silently fail if file deletion fails (file may already be deleted)
+            pass
