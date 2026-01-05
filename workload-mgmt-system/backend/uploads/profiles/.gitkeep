@@ -1,0 +1,4 @@
+# This file ensures the profiles directory is tracked by git
+# Profile pictures uploaded by users are stored here
+# Actual image files should NOT be committed to git
+

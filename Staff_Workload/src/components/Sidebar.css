@@ -1,0 +1,206 @@
+.sidebar {
+  width: 280px;
+  background-color: #ffffff;
+  border-right: 1px solid #e5e7eb;
+  height: 100vh;
+  position: fixed;
+  left: 0;
+  top: 0;
+  overflow-y: auto;
+  z-index: 100;
+}
+
+.sidebar-content {
+  padding: 1.5rem;
+}
+
+.sidebar-section {
+  margin-bottom: 2rem;
+}
+
+.nav-section-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
+}
+
+.nav-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.nav-link {
+  display: block;
+  padding: 0.5rem 0.75rem;
+  color: #4b5563;
+  text-decoration: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.nav-link:hover {
+  background-color: #f3f4f6;
+  color: #1f2937;
+}
+
+.nav-link.active {
+  background-color: #eff6ff;
+  color: #2563eb;
+  font-weight: 500;
+}
+
+.workload-management-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background-color: #f9fafb;
+  border-radius: 8px;
+}
+
+.workload-icon {
+  font-size: 1.5rem;
+}
+
+.workload-management-header h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+.role-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.role-selector label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.role-dropdown {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background-color: #ffffff;
+  font-size: 0.9rem;
+  color: #1f2937;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.role-dropdown:hover {
+  border-color: #9ca3af;
+}
+
+.role-dropdown:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.role-badge {
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background-color: #f9fafb;
+  color: #1f2937;
+  font-size: 0.85rem;
+}
+
+.role-badge-line {
+  display: flex;
+  gap: 0.4rem;
+  line-height: 1.3;
+}
+
+.role-badge-label {
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.logout-button {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #fecaca;
+  background-color: #fef2f2;
+  color: #b91c1c;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.logout-button:hover {
+  background-color: #fee2e2;
+}
+
+.radio-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.radio-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  position: relative;
+}
+
+.radio-nav-item:hover {
+  background-color: #f9fafb;
+}
+
+.radio-nav-item input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.radio-nav-item.selected {
+  background-color: #fef2f2;
+}
+
+.radio-nav-item.selected::before {
+  content: '';
+  position: absolute;
+  left: 0.75rem;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #dc2626;
+}
+
+.radio-icon {
+  font-size: 1.25rem;
+  margin-left: 0.5rem;
+}
+
+.radio-label {
+  font-size: 0.9rem;
+  color: #374151;
+  font-weight: 500;
+}
+
+.radio-nav-item.selected .radio-label {
+  color: #dc2626;
+}
+
+@media (max-width: 1024px) {
+  .sidebar {
+    width: 240px;
+  }
+}
+
